@@ -35,6 +35,18 @@ def _strip_ns(tag: str) -> str:
     return tag.rsplit("}", 1)[-1].lower()
 
 
+# Section 16 ownership forms. An entity whose entire filing history is only
+# these is an individual insider (officer/director/10% holder), not an operating
+# company, and must be filtered out of the target list.
+_INSIDER_FORMS = {"3", "4", "5"}
+
+
+def _is_insider_only(forms):
+    """True if every filed form is a Section 16 ownership form (3/4/5)."""
+    bases = {str(f).split("/", 1)[0].strip() for f in forms if f}
+    return bool(bases) and bases.issubset(_INSIDER_FORMS)
+
+
 class EDGARScraper:
     source = "edgar"
 
@@ -61,9 +73,10 @@ class EDGARScraper:
                     continue
                 seen_ciks.add(cik)
                 enriched = self._enrich_company(c)
-                # The atom feed's name field is unreliable (a known SEC bug);
-                # only keep records the submissions API could name.
-                if enriched.get("company_name"):
+                # Skip individual insiders, and records the submissions API
+                # could not name (the atom feed name field is an unreliable
+                # SEC bug, so a missing name means we never resolved it).
+                if enriched.get("company_name") and not enriched.get("_individual"):
                     results.append(enriched)
                 if len(results) >= MAX_RESULTS_PER_SOURCE:
                     break
@@ -148,16 +161,22 @@ class EDGARScraper:
             company["sic_code"] = data["sic"]
 
         recent = data.get("filings", {}).get("recent", {})
+        forms = recent.get("form", []) or []
         dates = recent.get("filingDate", []) or []
         company["filing_status"] = (
             "active" if any(d >= "2024-01-01" for d in dates[:10]) else "lapsed"
         )
+
+        # Drop individual insiders who appear under a company's SIC code.
+        if _is_insider_only(forms):
+            company["_individual"] = True
+
         company.pop("cik", None)  # internal only; not a schema column
         company["raw_data"] = {
             "cik": cik,
             "sic": data.get("sic"),
             "sicDescription": data.get("sicDescription"),
-            "recent_forms": (recent.get("form", []) or [])[:5],
+            "recent_forms": forms[:5],
         }
         polite_sleep()
         return company

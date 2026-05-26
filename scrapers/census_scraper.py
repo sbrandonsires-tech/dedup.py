@@ -8,8 +8,9 @@ own. `run()` therefore returns no company rows; use `get_market_stats()` to
 size markets and prioritize which states / sectors to mine with the other
 scrapers.
 
-A free API key (CENSUS_API_KEY) lifts the daily query limit but small queries
-work without one.
+A free API key (CENSUS_API_KEY) is effectively required: the API now returns a
+"Missing Key" page for keyless requests. get_market_stats() logs and returns
+empty results when no key is configured.
 
 Docs: https://www.census.gov/data/developers/data-sets/cbp-nonemp-zbp/cbp-api.html
 """
