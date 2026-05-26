@@ -24,6 +24,7 @@ from database.db import Database
 from scoring.scorer import Scorer
 from outputs.excel_export import ExcelExport
 from outputs.digest import DigestGenerator
+from enrichment.edgar_financials import EDGARFinancials
 
 from scrapers.edgar_scraper import EDGARScraper
 from scrapers.sam_scraper import SAMScraper
@@ -95,7 +96,15 @@ def run_pipeline(source_filter=None, tier_filter=None, write_excel=True):
             pulled = len(records)
             print(f"  Pulled {pulled} records")
 
+            # EDGAR filers expose XBRL financials: pull revenue/EBITDA before
+            # scoring so the size dimension reflects real numbers.
+            financials = EDGARFinancials() if name == "edgar" else None
+
             for record in records:
+                if financials:
+                    cik = (record.get("raw_data") or {}).get("cik")
+                    if cik:
+                        record.update(financials.enrich(cik))
                 scored = scorer.score(record)
                 if tier_filter and scored["tier"] != tier_filter:
                     continue
