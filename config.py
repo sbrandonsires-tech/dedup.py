@@ -202,8 +202,13 @@ EDGAR_FULLTEXT_URL = "https://efts.sec.gov/LATEST/search-index"
 SAM_API_KEY = os.getenv("SAM_API_KEY", "")
 SAM_ENTITY_URL = "https://api.sam.gov/entity-information/v3/entities"
 
-# OSHA — free, no key required.
-OSHA_BASE_URL = "https://data.osha.gov/api/1.0/inspection"
+# OSHA — DOL Enforcement Data API v4. Requires a free DOL API key, passed as
+# the X-API-KEY query parameter. Get one at https://devtools.dol.gov/developer
+# (key issuance is sometimes paused; see README). Without DOL_API_KEY the OSHA
+# scraper skips cleanly. Records are returned under a "data" key.
+DOL_API_KEY = os.getenv("DOL_API_KEY", "")
+OSHA_INSPECTION_URL = "https://api.dol.gov/v4/get/OSHA/inspection/json"
+OSHA_VIOLATION_URL = "https://api.dol.gov/v4/get/OSHA/violation/json"
 
 # Census Bureau — free, register at api.census.gov.
 CENSUS_API_KEY = os.getenv("CENSUS_API_KEY", "")

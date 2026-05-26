@@ -29,10 +29,10 @@ logs/              run_log.txt and error_log.txt
 | Source | Key needed | Role |
 |---|---|---|
 | SEC EDGAR | none | Company discovery by SIC; XBRL financials |
-| SAM.gov | `SAM_API_KEY` | Federal contractor registry (size band, location) |
-| OSHA | none | Inspection/violation history (stress signal) |
-| Census CBP | `CENSUS_API_KEY` (optional) | Market sizing only — **not** a lead source |
-| USPTO / PatentsView | `USPTO_API_KEY` (optional) | IP-activity enrichment signal only |
+| SAM.gov | `SAM_API_KEY` | Federal contractor registry (real revenue + employees) |
+| OSHA | `DOL_API_KEY` | Inspection/violation history (stress signal) via DOL v4 API |
+| Census CBP | `CENSUS_API_KEY` | Market sizing only — **not** a lead source |
+| USPTO / PatentsView | `USPTO_API_KEY` | IP-activity enrichment signal only |
 | BizBuySell / DealStream / AM&AA | none | Public broker listings — **see ToS note** |
 
 ### Terms-of-service note on broker scrapers
