@@ -146,6 +146,35 @@ NAICS_TARGET = [
     "541614",  # Process and Logistics Consulting
 ]
 
+# SAM.gov requires full 6-digit NAICS codes (it ignores 3-digit prefixes and
+# wildcards), so the SAM scraper queries this curated list of industrial codes
+# under the target families above — one request per code.
+SAM_NAICS_CODES = [
+    # Fabricated metal (332)
+    "332311", "332312", "332313", "332321", "332322", "332323",
+    "332710", "332721", "332811", "332812", "332813", "332991",
+    "332996", "332999",
+    # Machinery (333)
+    "333120", "333241", "333249", "333413", "333511", "333517",
+    "333611", "333912", "333996",
+    # Computer / electronic (334)
+    "334111", "334290", "334413", "334418", "334419", "334515",
+    # Electrical equipment (335)
+    "335311", "335312", "335931", "335999",
+    # Transportation equipment (336)
+    "336370", "336390", "336412", "336413",
+    # Miscellaneous manufacturing (339)
+    "339112", "339113", "339991", "339999",
+    # Durable-goods wholesale (423)
+    "423510", "423610", "423830", "423840", "423860",
+    # Nondurable-goods wholesale (424)
+    "424690",
+    # Repair & maintenance (811)
+    "811310",
+    # Engineering / consulting (541)
+    "541330", "541614",
+]
+
 
 # ── SCORING WEIGHTS ───────────────────────────────────────────────────────────
 WEIGHT_SECTOR_FIT = 30  # Out of 100

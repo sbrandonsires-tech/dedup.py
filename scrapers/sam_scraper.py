@@ -6,21 +6,28 @@ at https://sam.gov. Docs: https://open.gsa.gov/api/entity-api/
 
 What it pulls:
   * Businesses registered for federal contracting by NAICS code
-  * Self-reported revenue size band -> revenue estimate range
+  * Real average annual revenue and employee count (assertions.sizeMetrics) —
+    this is actual size data, not a self-reported band
   * State / city / address, UEI
   * Registration expiration (lapsed => possible exit / transition signal)
-  * Small-business flag
+
+API specifics (confirmed against the live API):
+  * NAICS must be a full 6-digit code; 3-digit prefixes and wildcards return
+    nothing. We query config.SAM_NAICS_CODES, one request per code.
+  * The state filter parameter is `physicalAddressProvinceOrStateCode`.
+  * The public key is rate limited; a full run can exhaust the daily quota.
 
 Limitations:
-  * Only covers entities that registered for federal work.
-  * Revenue is self-reported and banded, not precise.
+  * Only covers entities registered for federal work.
+  * sizeMetrics revenue is a 5-year average of receipts (SBA size basis), close
+    to but not identical to a single-year top line.
   * A lapsed registration does not necessarily mean the business is closing.
 """
 
 import logging
 
 from config import (
-    NAICS_TARGET,
+    SAM_NAICS_CODES,
     SAM_API_KEY,
     SAM_ENTITY_URL,
     MAX_RESULTS_PER_SOURCE,
@@ -29,20 +36,16 @@ from config import (
 )
 from scrapers.http_client import make_session, get_json, polite_sleep
 
-# SAM receipts band code -> (revenue low, revenue high) in dollars.
-_REVENUE_BANDS = {
-    "A": (0, 100_000),
-    "B": (100_000, 250_000),
-    "C": (250_000, 500_000),
-    "D": (500_000, 1_000_000),
-    "E": (1_000_000, 2_000_000),
-    "F": (2_000_000, 5_000_000),
-    "G": (5_000_000, 10_000_000),
-    "H": (10_000_000, 17_000_000),
-    "I": (17_000_000, 25_000_000),
-    "J": (25_000_000, 38_500_000),
-    "K": (38_500_000, 100_000_000),
-}
+# Heavy responses (assertions section) need a longer timeout than the default.
+_SAM_TIMEOUT = 90
+_PAGE_SIZE = 10
+
+
+def _to_number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 class SAMScraper:
@@ -57,7 +60,7 @@ class SAMScraper:
             return []
 
         results = []
-        for naics in NAICS_TARGET:
+        for naics in SAM_NAICS_CODES:
             if len(results) >= MAX_RESULTS_PER_SOURCE:
                 break
             try:
@@ -77,13 +80,13 @@ class SAMScraper:
     def _search_by_naics(self, naics_code):
         params = {
             "api_key": SAM_API_KEY,
-            "primaryNaics": naics_code,
-            "registrationStatus": "A",  # Active registrations
+            "naicsCode": naics_code,  # must be a full 6-digit code
+            "registrationStatus": "A",  # active registrations
             "includeSections": "entityRegistration,coreData,assertions",
             "page": 0,
-            "size": 100,
+            "size": _PAGE_SIZE,
         }
-        data = get_json(self.session, SAM_ENTITY_URL, params=params)
+        data = get_json(self.session, SAM_ENTITY_URL, params=params, timeout=_SAM_TIMEOUT)
         return data.get("entityData", []) or []
 
     def _parse_entity(self, entity):
@@ -93,20 +96,21 @@ class SAMScraper:
             geo = core.get("physicalAddress", {}) or {}
             assertions = entity.get("assertions", {}) or {}
             goods = assertions.get("goodsAndServices", {}) or {}
+            size = assertions.get("sizeMetrics", {}) or {}
 
-            receipts = goods.get("receiptsTotalValue", "")
-            rev_low, rev_high = _REVENUE_BANDS.get(receipts, (0, 0))
+            revenue = _to_number(size.get("averageAnnualRevenue"))
+            employees = _to_number(size.get("averageNumberOfEmployees"))
 
-            # Skip if the band is clearly outside TRS criteria.
-            if rev_high > 0 and (rev_high < REVENUE_MIN or rev_low > REVENUE_MAX):
+            # Trim the obviously-out-of-range entities so the result cap isn't
+            # spent on tiny shops or large primes. Keep records with no revenue
+            # data (unknown) for the scorer to weigh.
+            if revenue is not None and not (
+                REVENUE_MIN * 0.5 <= revenue <= REVENUE_MAX * 2
+            ):
                 return None
 
             exp_date = reg.get("registrationExpirationDate", "") or ""
             lapsed = bool(exp_date) and exp_date < "2025-01-01"
-            biz_types = (core.get("businessTypes", {}) or {}).get(
-                "businessTypeList", []
-            ) or []
-            type_codes = {bt.get("businessTypeCode") for bt in biz_types}
 
             return {
                 "company_name": reg.get("legalBusinessName", ""),
@@ -116,12 +120,13 @@ class SAMScraper:
                 "city": geo.get("city", ""),
                 "zip": geo.get("zipCode", ""),
                 "address": geo.get("addressLine1", ""),
-                "naics_code": reg.get("primaryNaics", ""),
-                "revenue_estimate_low": rev_low or None,
-                "revenue_estimate_high": rev_high or None,
+                "naics_code": goods.get("primaryNaics", "")
+                or reg.get("primaryNaics", ""),
+                "revenue_estimate_low": revenue,
+                "revenue_estimate_high": revenue,
+                "employee_count_low": int(employees) if employees else None,
+                "employee_count_high": int(employees) if employees else None,
                 "filing_status": "lapsed" if lapsed else "active",
-                # Common small-business type codes (e.g. 27 = small business).
-                "sba_loan_flag": 1 if "27" in type_codes else 0,
                 "raw_data": entity,
             }
         except Exception as e:  # noqa: BLE001
