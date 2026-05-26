@@ -34,11 +34,15 @@ from config import (
     REVENUE_MIN,
     REVENUE_MAX,
 )
-from scrapers.http_client import make_session, get_json, polite_sleep
+from scrapers.http_client import make_session, polite_sleep
 
 # Heavy responses (assertions section) need a longer timeout than the default.
 _SAM_TIMEOUT = 90
 _PAGE_SIZE = 10
+
+
+class SAMQuotaExceeded(Exception):
+    """Raised when SAM returns HTTP 429 (daily quota exhausted)."""
 
 
 def _to_number(value):
@@ -52,7 +56,9 @@ class SAMScraper:
     source = "sam"
 
     def __init__(self):
-        self.session = make_session()
+        # Don't auto-retry on 429: a SAM 429 means the daily quota is gone, so
+        # retrying only burns time. We detect it and stop the run instead.
+        self.session = make_session(retry_statuses=(500, 502, 503, 504))
 
     def run(self):
         if not SAM_API_KEY:
@@ -65,6 +71,13 @@ class SAMScraper:
                 break
             try:
                 entities = self._search_by_naics(naics)
+            except SAMQuotaExceeded as e:
+                logging.warning(
+                    "SAM daily quota exhausted; stopping with %d records. %s",
+                    len(results),
+                    e,
+                )
+                break
             except Exception as e:  # noqa: BLE001
                 logging.error("SAM NAICS %s error: %s", naics, e)
                 continue
@@ -86,8 +99,11 @@ class SAMScraper:
             "page": 0,
             "size": _PAGE_SIZE,
         }
-        data = get_json(self.session, SAM_ENTITY_URL, params=params, timeout=_SAM_TIMEOUT)
-        return data.get("entityData", []) or []
+        resp = self.session.get(SAM_ENTITY_URL, params=params, timeout=_SAM_TIMEOUT)
+        if resp.status_code == 429:
+            raise SAMQuotaExceeded(resp.text[:200])
+        resp.raise_for_status()
+        return resp.json().get("entityData", []) or []
 
     def _parse_entity(self, entity):
         try:

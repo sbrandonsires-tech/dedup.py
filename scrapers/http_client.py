@@ -20,22 +20,21 @@ except ImportError:  # pragma: no cover
 
 from config import USER_AGENT, REQUEST_TIMEOUT_SECONDS, REQUEST_DELAY_SECONDS
 
-_RETRY = Retry(
-    total=3,
-    backoff_factor=1.0,
-    status_forcelist=(429, 500, 502, 503, 504),
-    allowed_methods=frozenset({"GET"}),
-    raise_on_status=False,
-)
 
-
-def make_session(extra_headers=None) -> requests.Session:
+def make_session(extra_headers=None, retry_statuses=(429, 500, 502, 503, 504)) -> requests.Session:
     session = requests.Session()
     headers = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
     if extra_headers:
         headers.update(extra_headers)
     session.headers.update(headers)
-    adapter = HTTPAdapter(max_retries=_RETRY)
+    retry = Retry(
+        total=3,
+        backoff_factor=1.0,
+        status_forcelist=tuple(retry_statuses),
+        allowed_methods=frozenset({"GET"}),
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
