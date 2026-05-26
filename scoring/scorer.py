@@ -20,6 +20,12 @@ from config import (
     PRIORITY_STATES,
     REVENUE_MIN,
     REVENUE_MAX,
+    EBITDA_MIN,
+    EBITDA_MAX,
+    EBITDA_TARGET_MIN,
+    EBITDA_TARGET_MAX,
+    PREFERRED_REVENUE_MIN,
+    PREFERRED_REVENUE_MAX,
     EMPLOYEE_MIN,
     EMPLOYEE_MAX,
     WEIGHT_SECTOR_FIT,
@@ -102,23 +108,24 @@ class Scorer:
         return 30  # Non-target state — low priority.
 
     def _score_size(self, c) -> int:
+        """Peak score for the current focus band; full Fund III range scores lower.
+
+        EBITDA is the best size signal when present. When it is not (most
+        records), revenue stands in for it via the PREFERRED_REVENUE_* band,
+        which is the focus EBITDA band converted at assumed margins.
+        """
+        ebitda = c.get("ebitda_estimate")
+        if ebitda:
+            return self._score_ebitda(ebitda)
+
         rev_low = c.get("revenue_estimate_low") or c.get("listed_revenue")
         rev_high = c.get("revenue_estimate_high")
-        employees_high = c.get("employee_count_high")
-
         if rev_low and rev_high:
-            overlap = min(rev_high, REVENUE_MAX) - max(rev_low, REVENUE_MIN)
-            if overlap > 0:
-                return 100
-            gap = min(abs(rev_low - REVENUE_MAX), abs(rev_high - REVENUE_MIN))
-            return 60 if gap < 2_000_000 else 25
-
+            return self._score_revenue_band(rev_low, rev_high)
         if rev_low:
-            if REVENUE_MIN <= rev_low <= REVENUE_MAX:
-                return 90
-            if rev_low < REVENUE_MAX * 1.5:
-                return 50
+            return self._score_revenue_point(rev_low)
 
+        employees_high = c.get("employee_count_high")
         if employees_high:
             if EMPLOYEE_MIN <= employees_high <= EMPLOYEE_MAX:
                 return 70
@@ -126,3 +133,33 @@ class Scorer:
                 return 40
 
         return 30  # Insufficient size data.
+
+    @staticmethod
+    def _score_ebitda(ebitda) -> int:
+        if EBITDA_TARGET_MIN <= ebitda <= EBITDA_TARGET_MAX:
+            return 100  # current focus band
+        if EBITDA_MIN <= ebitda <= EBITDA_MAX:
+            return 55  # within Fund III criteria, outside current focus
+        return 15  # outside Fund III criteria entirely
+
+    @staticmethod
+    def _score_revenue_band(rev_low, rev_high) -> int:
+        def overlaps(lo, hi):
+            return min(rev_high, hi) - max(rev_low, lo) > 0
+
+        if overlaps(PREFERRED_REVENUE_MIN, PREFERRED_REVENUE_MAX):
+            return 100  # straddles the focus band
+        if overlaps(REVENUE_MIN, REVENUE_MAX):
+            return 55  # within Fund III range, outside focus
+        gap = min(abs(rev_low - REVENUE_MAX), abs(rev_high - REVENUE_MIN))
+        return 40 if gap < 2_000_000 else 20
+
+    @staticmethod
+    def _score_revenue_point(rev) -> int:
+        if PREFERRED_REVENUE_MIN <= rev <= PREFERRED_REVENUE_MAX:
+            return 100
+        if REVENUE_MIN <= rev <= REVENUE_MAX:
+            return 55
+        if rev < REVENUE_MAX * 1.5:
+            return 35
+        return 20

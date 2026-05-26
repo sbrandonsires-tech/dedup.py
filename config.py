@@ -64,6 +64,21 @@ EMPLOYEE_MIN = 10
 EMPLOYEE_MAX = 250
 
 
+# ── CURRENT SOURCING FOCUS ────────────────────────────────────────────────────
+# A narrower preference band *within* the Fund III criteria above. The size
+# score peaks for companies in this band; companies in the full range still
+# score (lower) and nothing is excluded. Widen these back toward EBITDA_MIN/MAX
+# when you want the full range again.
+EBITDA_TARGET_MIN = 1_000_000  # $1M
+EBITDA_TARGET_MAX = 2_000_000  # $2M
+# When EBITDA is unknown (most records), approximate the focus band by revenue
+# using a typical lower-middle-market industrial EBITDA margin range.
+ASSUMED_EBITDA_MARGIN_LOW = 0.10
+ASSUMED_EBITDA_MARGIN_HIGH = 0.15
+PREFERRED_REVENUE_MIN = round(EBITDA_TARGET_MIN / ASSUMED_EBITDA_MARGIN_HIGH)  # ~$6.7M
+PREFERRED_REVENUE_MAX = round(EBITDA_TARGET_MAX / ASSUMED_EBITDA_MARGIN_LOW)   # $20M
+
+
 # ── TARGET GEOGRAPHIES ────────────────────────────────────────────────────────
 TARGET_STATES = [
     "AL", "AR", "AZ", "CO", "FL", "GA", "IA", "ID", "IL", "IN",

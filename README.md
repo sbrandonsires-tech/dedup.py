@@ -97,7 +97,7 @@ Each company is scored 0–100 across five weighted dimensions (weights in
 |---|---|---|
 | Sector fit | 30 | Exact SIC/NAICS match scores highest |
 | Geography | 15 | Priority states > target states > other |
-| Size fit | 25 | Revenue / employee band proximity to Fund III window |
+| Size fit | 25 | Peaks at the current focus band (EBITDA `$1-2M`, or ~`$6.7M-$20M` revenue when EBITDA is unknown); full Fund III range scores lower |
 | Ownership signal | 20 | Business age, lapsed registration, small-business flag |
 | Stress signal | 10 | OSHA severity, UCC filings, days on market |
 
