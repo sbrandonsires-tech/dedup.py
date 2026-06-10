@@ -1,6 +1,3 @@
-# Secrets — never commit real API keys
-.env
-
 # Python
 __pycache__/
 *.py[cod]
@@ -10,19 +7,28 @@ venv/
 env/
 
 # SQLite database (regenerated on run)
-database/trs_pipeline.db
-database/*.db-journal
-database/*.db-wal
+*.db
+*.db-journal
+*.db-wal
+data/trs.db
 
-# Generated outputs
-outputs/TRS_Deal_Pipeline.xlsx
-outputs/*_temp_*.xlsx
-outputs/weekly_digest.html
+# Raw response cache and bulk downloads (re-fetchable; never committed)
+cache/
+data/*.zip
+data/*.csv
+data/*.txt
+
+# Generated Excel workbooks
+outputs/*.xlsx
 
 # Logs
 logs/*.txt
+logs/*.log
 
 # OS / editor
 .DS_Store
 .idea/
 .vscode/
+
+# Legacy code kept for reference, not part of the build
+legacy/__pycache__/

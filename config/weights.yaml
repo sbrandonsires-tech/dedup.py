@@ -1,0 +1,26 @@
+# TRS deal sourcing - scoring weights and thresholds
+# Edit this file to retune scoring. No code changes required.
+# After editing, run:  python pipeline.py rescore
+#
+# The five component weights should sum to 100. Each component is computed on a
+# 0-100 sub-scale, then multiplied by (weight / 100) and summed into the total.
+
+weights:
+  niche_fit: 30        # How well the company matches priority industrial niches
+  size_fit: 25         # Revenue / EBITDA / headcount inside the target band
+  succession: 25       # Owner age, operating history, family ownership signals
+  geography: 10        # Midwest and Northeast weighted highest
+  data_confidence: 10  # How much corroborated, sourced data backs the record
+
+# Watch List band (Excel tab). Targets scoring inside this band are surfaced
+# separately from the primary Scored Targets list.
+watch_list:
+  low: 60
+  high: 79
+
+# Minimum total score for a record to appear on the Scored Targets tab.
+# Records below this are kept in the database but not surfaced.
+surface_threshold: 50
+
+# Number of top-scored targets sent through the enrichment pass each run.
+enrichment_top_n: 25

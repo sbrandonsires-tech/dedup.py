@@ -1,124 +1,152 @@
-# TRS Investments — Deal Sourcing Pipeline
+# TRS Investments - Deal Sourcing Pipeline
 
-Proprietary deal-sourcing pipeline for TRS Investments LLC, a lower-middle-market
-industrial PE firm. Targets founder/family-owned North American businesses with
-$4M–$30M revenue and $800K–$5M adjusted EBITDA in manufacturing, value-add
-distribution, and B2B industrial services.
+A keyless deal-sourcing pipeline for lower-middle-market industrial acquisitions.
+Every data source is publicly accessible **without authentication**: no paid APIs,
+no API keys, no `.env`. Scraping is polite (real User-Agent, robots.txt respected,
+1 request / 2 seconds, every raw response cached so re-runs never re-fetch).
 
-The pipeline pulls candidate companies from public sources, scores each one for
-fit and exit-readiness, deduplicates them into a SQLite database, and writes a
-formatted Excel workbook (Tier 1 / Tier 2 / All Records / Run Log) plus a weekly
-HTML digest.
+> Status: **schema + EDGAR + Census + test run** are built. Remaining sources
+> (OSHA, EPA ECHO, State Secretary of State registries, company-website crawl) and
+> the web-enrichment pass are scaffolded in the architecture and planned next.
 
-## Architecture
+## Target profile
 
-```
-main.py            Orchestrator: run scrapers -> score -> dedup -> SQLite -> Excel
-scheduler.py       Register recurring runs (Windows Task Scheduler / cron)
-config.py          All tunable parameters; secrets read from the environment
-scrapers/          One module per source (returns dicts matching the schema)
-enrichment/        Per-company lookups (OSHA, UCC, EDGAR financials, website)
-scoring/           Sector map, exit-readiness signals, master scorer
-database/          SQLite schema + data-access layer
-outputs/           Excel export + weekly HTML digest
-logs/              run_log.txt and error_log.txt
-```
-
-## Data sources
-
-| Source | Key needed | Role |
-|---|---|---|
-| SEC EDGAR | none | Company discovery by SIC; XBRL financials |
-| SAM.gov | `SAM_API_KEY` | Federal contractor registry (real revenue + employees) |
-| OSHA | `DOL_API_KEY` | Inspection/violation history (stress signal) via DOL v4 API |
-| Census CBP | `CENSUS_API_KEY` | Market sizing only — **not** a lead source |
-| USPTO / PatentsView | `USPTO_API_KEY` | IP-activity enrichment signal only |
-| BizBuySell / DealStream / AM&AA | none | Public broker listings — **see ToS note** |
-
-### Terms-of-service note on broker scrapers
-BizBuySell, DealStream, and AM&AA generally prohibit automated scraping in their
-Terms of Use. These scrapers are included for completeness, but you are
-responsible for confirming you have permission, honoring `robots.txt`, and
-respecting rate limits before enabling them. Prefer a licensed feed where one
-exists. The public-API sources (EDGAR / SAM / OSHA / Census / USPTO) have no
-such restriction.
+North American industrial manufacturing, value-add distribution, and B2B
+industrial services. Priority niches: wire harness, cable assembly, electrical /
+electronic components distribution, wire and cable, connectors, industrial MRO.
+Revenue $4M to $30M, EBITDA $800K to $5M, founder/family owned, succession
+signals, Midwest and Northeast weighted highest, Canada acceptable. The full
+profile lives in `config/targets.yaml` and drives all scoring.
 
 ## Setup
 
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
-
-# 2. Configure secrets (never commit real keys)
-cp .env.example .env
-#    then edit .env and fill in SAM_API_KEY / CENSUS_API_KEY (optional keys)
-
-# 3. Initialize the database
-python main.py --init
-
-# 4. Test a single source
-python main.py --source edgar
-
-# 5. Full run
-python main.py
+pip install -r requirements.txt        # requests, beautifulsoup4, pandas, openpyxl, pyyaml
 ```
 
-### Secrets
-API keys are read from environment variables (via `.env`, which is gitignored).
-Nothing sensitive is committed to the repository. On Windows you can also set
-them with `setx SAM_API_KEY ...` instead of using a `.env` file.
+No keys to configure. The first run downloads and caches a Census bulk file
+(~14 MB) into `cache/`.
 
-### Output location
-The Excel workbook defaults to `outputs/TRS_Deal_Pipeline.xlsx`. To write it
-elsewhere (e.g. your Windows deal folder), set `TRS_EXCEL_OUTPUT_PATH` in `.env`:
-
-```
-TRS_EXCEL_OUTPUT_PATH=C:\Users\Owner\trs-deal-sourcing\outputs\TRS_Deal_Pipeline.xlsx
-```
-
-## Common commands
+## Running
 
 ```bash
-python main.py                    # full run, all sources
-python main.py --source sam       # one source
-python main.py --tier 1           # only persist Tier 1 hits
-python main.py --no-excel         # skip the Excel rewrite
-python main.py --enrich "Acme Co" # OSHA enrichment for one company
-python main.py --digest           # (re)generate / email the weekly digest
-python scheduler.py               # print scheduling instructions
+python pipeline.py run                       # full pass: all sources, score, export
+python pipeline.py run --source edgar        # one source, then score + export
+python pipeline.py run --states IL,IN --naics 33592,335921,335929
+python pipeline.py rescore                   # re-apply YAML weights, NO re-fetch
+python pipeline.py export                     # rebuild Excel from current DB only
 ```
 
-## Scoring
+Default scope is the review scope: **NAICS 33592 (wire and cable) in IL and IN.**
+Output Excel lands in `outputs/TRS_Deal_Pipeline_<date>.xlsx`.
 
-Each company is scored 0–100 across five weighted dimensions (weights in
-`config.py`):
+## How scoring works
 
-| Dimension | Weight | Notes |
-|---|---|---|
-| Sector fit | 30 | Exact SIC/NAICS match scores highest |
-| Geography | 15 | Priority states > target states > other |
-| Size fit | 25 | Peaks at the current focus band (EBITDA `$1-2M`, or ~`$6.7M-$20M` revenue when EBITDA is unknown); full Fund III range scores lower |
-| Ownership signal | 20 | Business age, lapsed registration, small-business flag |
-| Stress signal | 10 | OSHA severity, UCC filings, days on market |
+A 0-100 total from five weighted components (weights in `config/weights.yaml`,
+editable without touching code; run `rescore` after editing):
 
-Tiers: **Tier 1** ≥ 70 (surfaced immediately), **Tier 2** 45–69 (watch list /
-digest), **Tier 3** otherwise (logged only).
+| Component        | Weight | Driven by |
+|------------------|:------:|-----------|
+| Niche fit        | 30 | Priority niche keywords + priority/core NAICS |
+| Size fit         | 25 | Revenue / EBITDA / headcount vs. target band (revenue estimated from headcount when financials are absent) |
+| Succession       | 25 | Operating history 20+ yrs, owner age 60+, family / generational language, retirement signals |
+| Geography        | 10 | Midwest + Northeast highest, Canada acceptable |
+| Data confidence  | 10 | Corroboration: number of cited signals and distinct sources |
 
-## Working the pipeline in Excel
-- `Stage` defaults to `Identified`; update it to `Screened` / `Diligence` /
-  `LOI` / `Closed` / `Passed` as deals progress.
-- `Notes`, `Next Action`, `Next Action Date`, `Assigned To`, and `Stage` are
-  user-managed: reruns **never** overwrite them once set.
-- Listing URLs are clickable; Tier 1 rows are gold, Tier 2 slate.
+Every score stores its full component breakdown and per-component rationale in
+`scores.breakdown_json` for auditability.
 
-## Known limitations
-1. Revenue/EBITDA figures are proxies (SAM bands are self-reported; broker
-   figures are seller-stated). Never present them as verified financials.
-2. EDGAR names are legal entity names; one parent can appear several times.
-3. OSHA data is address/establishment-matched, not entity-matched.
-4. Broker listings are often anonymized and skew smaller than the TRS window.
-5. This pipeline finds companies that *match criteria*; it does not confirm
-   they are for sale. Most outreach is cold.
-6. Dedup is by company name + state; subsidiaries/DBAs can still slip through —
-   review Tier 1 hits manually before outreach.
+## Data model (SQLite, `data/trs.db`)
+
+Five normalized tables: `companies`, `signals`, `scores`, `contacts`, `run_log`.
+Dedup key is **normalized name + state + domain**. Every fact about a company is
+an atomic row in `signals` that cites its `source_url` and `fetch_date`.
+
+## Sources built so far
+
+1. **SEC EDGAR** full-text search (`efts.sec.gov`, keyless, descriptive
+   User-Agent). Two jobs: flag public filers as **excluded / institutionally
+   owned**, and mine filings for **competitor names** (low-confidence, unverified
+   candidates). On the test scope it correctly excludes Belden, Anixter, Atkore,
+   Coleman Cable, General Cable, Asia Pacific Wire & Cable, etc.
+2. **Census County Business Patterns** universe map. The live CBP *API* now
+   requires a key, so we use the keyless **bulk county flat file**
+   (`www2.census.gov/.../cbp22co.zip`) instead. Builds establishment counts and
+   size-class distribution by county and NAICS.
+
+### Test run finding (NAICS 33592, IL + IN)
+
+EDGAR and Census are the two keyless sources that do **not** directly enumerate
+private companies, and the test run shows exactly that:
+
+- Census universe map for 33592 is thin and heavily **disclosure-suppressed**:
+  only DuPage County, IL surfaces (6 establishments, size bands withheld as "N").
+  Indiana counties are suppressed entirely at this 5-digit code.
+- EDGAR produces a clean **exclusion set** of public players plus low-confidence
+  competitor mentions (many large or foreign), none of which qualify as targets.
+- The **Scored Targets** tab is therefore empty by design. Private LMM targets
+  come from the next phase: **State Secretary of State registries** (names +
+  incorporation year) and **company-website crawling** (founding year, family
+  language, owner names). EDGAR/Census are the exclusion filter and the universe
+  denominator around those.
+
+## Output workbook
+
+Tabs: **Summary** dashboard, **Scored Targets** (sortable, full score-breakdown
+columns), **New This Run**, **Watch List** (60-79), **Source Log**. House style:
+navy `#1B365D` headers, Georgia bold headings, Calibri body, blue font on
+manually editable cells (Pipeline Stage, Owner/Contact, Notes). No em dashes in
+any cell text.
+
+## Hard exclusions (never surfaced on target tabs)
+
+PE/VC-backed or public-subsidiary companies; staffing and construction
+pass-through businesses (name blocklist); under 10 or over 250 employees. Excluded
+rows are kept in the database for auditability, just never surfaced.
+
+## Data Gaps (the upgrade path a keyed version would add)
+
+This build is deliberately keyless. A keyed/paid tier would add:
+
+- **Census Bureau API key** (free): restores live CBP/County queries instead of
+  the bulk file, plus access to less-suppressed tabulations. The bulk file we use
+  is fully keyless but suppresses narrow cells more aggressively.
+- **DOL / OSHA enforcement API key** (free, issuance intermittent): the OSHA
+  *bulk CSV* path is keyless and planned; the API key would add fresher
+  inspection data. OSHA confirms a real plant exists and gives employee counts.
+- **SAM.gov API key** (free): federal registration data (UEI, NAICS, exact
+  address, points of contact) for any target that does government work.
+- **Apollo / ZoomInfo** (paid): verified owner names, direct emails and phones,
+  org charts. Replaces the unverified contact enrichment.
+- **Grata / SourceScrub** (paid): purpose-built private-company search with
+  firmographics, ownership, and growth signals; would massively improve the
+  target-generation step that State SoS + website crawling does here for free.
+- **PitchBook / CB Insights** (paid): authoritative PE/VC ownership data to make
+  the institutional-ownership exclusion exhaustive rather than EDGAR-only.
+- **D&B / business-credit data** (paid): revenue and employee actuals, replacing
+  the headcount-based revenue estimate.
+
+## Repository layout
+
+```
+pipeline.py            CLI: run / run --source / rescore / export
+config/
+  weights.yaml         scoring weights + thresholds (edit, then rescore)
+  targets.yaml         niches, NAICS, geography tiers, size band, exclusions
+trs/
+  settings.py          paths + YAML loading; no keys
+  http.py              polite cached client (UA, robots.txt, 2s rate limit)
+  schema.sql           companies / signals / scores / contacts / run_log
+  db.py                SQLite access + dedup upsert
+  normalize.py         name/state/domain normalization + dedup key
+  scoring.py           5-component weighted scorer with stored breakdown
+  process.py           hard filters, size estimates, rescore
+  excel.py             openpyxl workbook
+  sources/
+    edgar.py           SEC EDGAR full-text search
+    census.py          CBP bulk-file universe map
+cache/                 raw responses (gitignored; re-runs never re-fetch)
+data/                  SQLite db + bulk downloads + universe_map.csv (gitignored)
+outputs/               generated Excel workbooks (gitignored)
+legacy/                earlier key-dependent prototype, kept for reference
 ```

@@ -1,0 +1,107 @@
+# TRS deal sourcing - target profile
+# Drives niche fit, size fit, and geography scoring. Editable without code changes.
+
+firm:
+  name: "TRS Investments"
+  # Sent in the User-Agent header on every request, per SEC fair-access policy.
+  contact_email: "sbrandonsires@gmail.com"
+
+# Priority niches. Each keyword group carries a weight 0-100 used by niche_fit.
+# Matching is case-insensitive substring against company name, NAICS label,
+# and any text signals (filings, website copy).
+niches:
+  priority:        # highest-conviction niches
+    weight: 100
+    keywords:
+      - "wire harness"
+      - "wiring harness"
+      - "cable assembly"
+      - "cable assemblies"
+      - "wire and cable"
+      - "wire & cable"
+      - "connector"
+      - "electronic components"
+      - "electrical components"
+      - "industrial mro"
+      - "mro supply"
+  core:            # solidly in-thesis industrial
+    weight: 75
+    keywords:
+      - "electrical distribution"
+      - "electrical equipment"
+      - "value-add distribution"
+      - "industrial distribution"
+      - "fabricated metal"
+      - "contract manufacturing"
+      - "precision machining"
+  adjacent:        # acceptable industrial, lower conviction
+    weight: 45
+    keywords:
+      - "manufacturing"
+      - "industrial services"
+      - "machining"
+      - "fabrication"
+      - "components"
+
+# NAICS codes that define the industrial universe (Census + EDGAR SIC mapping).
+# 3-digit families plus the high-priority 5-6 digit niches.
+naics:
+  priority:        # the niche codes that score highest
+    - "33592"      # Communication and energy wire and cable / other wire products
+    - "335921"     # Fiber optic cable
+    - "335929"     # Other communication and energy wire
+    - "334417"     # Electronic connectors
+    - "3359"       # Other electrical equipment and component mfg
+    - "4236"       # Electrical / electronic goods merchant wholesalers
+  core:
+    - "3363"       # Motor vehicle parts mfg
+    - "3353"       # Electrical equipment mfg
+    - "332"        # Fabricated metal product mfg
+    - "333"        # Machinery mfg
+    - "334"        # Computer and electronic product mfg
+    - "335"        # Electrical equipment, appliance, component mfg
+
+# Geography tiers. Higher tier weight scores higher on the geography component.
+geography:
+  tiers:
+    primary:       # Midwest + Northeast, weighted highest
+      weight: 100
+      states: ["IL", "IN", "OH", "MI", "WI", "MN", "PA", "NY", "NJ", "MA", "CT", "OH"]
+    secondary:     # rest of Midwest / Mid-Atlantic
+      weight: 75
+      states: ["IA", "MO", "KY", "MD", "DE", "RI", "NH", "VT", "ME"]
+    acceptable:    # Canada and the rest of the US
+      weight: 50
+      states: ["ON", "QC", "BC", "AB", "MB"]   # Canadian provinces
+    default_weight: 30   # anything not listed
+
+# Size band. Used by size_fit. Revenue is estimated from headcount when
+# financials are unavailable, using the revenue-per-employee benchmark below.
+size:
+  revenue_min: 4000000        # $4M
+  revenue_max: 30000000       # $30M
+  ebitda_min: 800000          # $800K
+  ebitda_max: 5000000         # $5M
+  employee_min: 10
+  employee_max: 250
+  # Revenue-per-employee benchmark for industrial manufacturing / distribution.
+  # Used to estimate revenue from headcount when no financials are available.
+  revenue_per_employee: 250000
+  # Assumed EBITDA margin range for estimating EBITDA from revenue.
+  ebitda_margin_low: 0.08
+  ebitda_margin_high: 0.15
+
+# Hard exclusion filters. Records matching these are flagged excluded and never
+# surfaced on target tabs (kept in DB for auditability).
+exclusions:
+  employee_floor: 10          # under this many employees -> excluded
+  employee_ceiling: 250       # over this many employees -> excluded
+  # Substrings that mark a company as out of scope.
+  name_blocklist:
+    - "staffing"
+    - "temp services"
+    - "general construction"
+    - "construction services"
+  # Ownership disqualifiers detected from filings / enrichment.
+  exclude_if_pe_backed: true
+  exclude_if_public_subsidiary: true
