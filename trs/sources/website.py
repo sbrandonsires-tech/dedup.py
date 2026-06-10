@@ -97,11 +97,11 @@ def _verify(domain: str, name: str) -> bool:
 
 
 def _discover_domain(name: str, hint: str | None) -> str | None:
+    # Analyst-provided hints are trusted as-is: a transient fetch failure must
+    # never cause us to guess and match a *different* company's domain.
     if hint:
-        hint = normalize.normalize_domain(hint)
-        if _verify(hint, name):
-            return hint
-        # Stale or wrong hint: fall through to guessing.
+        return normalize.normalize_domain(hint)
+    # Only guess when no hint exists, and verify strictly to avoid false matches.
     for cand in _slug_candidates(name):
         if _verify(cand, name):
             return cand
