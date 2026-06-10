@@ -188,6 +188,16 @@ def _process_company(conn, name: str, state: str | None, domain_hint: str | None
         record["years_in_business"] = THIS_YEAR - info["founded"]
     cid, _ = db.upsert_company(conn, record)
 
+    # Feed niche keywords found in the site copy into scoring. A company can do
+    # cable assembly without the word in its name (e.g. "Custom Wire Industries").
+    blob = combined.lower()
+    for group in settings.targets().get("niches", {}).values():
+        for kw in group.get("keywords", []):
+            if kw.lower() in blob:
+                db.add_signal(conn, cid, signal_type="niche_keyword", value=kw,
+                              source="website", source_url=cite,
+                              fetch_date=fetch_date, confidence=0.6)
+
     if info["founded"]:
         db.add_signal(conn, cid, signal_type="founded_year",
                       value=str(info["founded"]), source="website",
