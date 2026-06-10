@@ -98,7 +98,10 @@ def _verify(domain: str, name: str) -> bool:
 
 def _discover_domain(name: str, hint: str | None) -> str | None:
     if hint:
-        return normalize.normalize_domain(hint)
+        hint = normalize.normalize_domain(hint)
+        if _verify(hint, name):
+            return hint
+        # Stale or wrong hint: fall through to guessing.
     for cand in _slug_candidates(name):
         if _verify(cand, name):
             return cand

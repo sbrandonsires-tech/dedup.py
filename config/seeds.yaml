@@ -2,24 +2,64 @@
 #
 # The website-crawl source reads this list, resolves/verifies each company's
 # domain, then crawls About/History/Team pages for founding year, family
-# ownership language, and owner names. State Secretary of State ingestion will
-# later auto-populate this role; until then an analyst curates it by hand.
+# ownership language, and owner names. State Secretary of State ingestion would
+# normally auto-populate this role, but IL/IN public registries are CAPTCHA/WAF
+# gated and not keyless-automatable (see README Data Gaps), so for those states
+# an analyst curates this list by hand.
 #
 # Fields: name (required), state (optional), domain (optional - guessed if blank).
 
 seeds:
-  - name: "Electri-Cord Manufacturing"
-    state: "PA"
-    domain: "ecmfg.com"
-  - name: "Meridian Cable Assemblies"
-    state: "CT"
-    domain: "meridiancable.com"
+  # Priority niches in target geographies (Midwest + Northeast)
+  - name: "Assembly Masters"
+    state: "IN"
+    domain: "assemblymasters.com"
+  - name: "Rayconn"
+    state: "IN"
+    domain: "rayconn.com"
+  - name: "EMF Corporation"
+    state: "IN"
+    domain: "emfusa.com"
+  - name: "Mursix Corporation"
+    state: "IN"
+    domain: "mursix.com"
   - name: "Cobra Wire & Cable"
     state: "IN"
     domain: "cobrawire.com"
+  - name: "R&A Techniques"
+    state: "IL"
+    domain: "raassembly.com"
+  - name: "Consolidated Electronic Wire & Cable"
+    state: "IL"
+    domain: "conwire.com"
+  - name: "Custom Wire Industries"
+    state: "WI"
+    domain: "customwireind.com"
+  - name: "Panel-Fab"
+    state: "OH"
+    domain: "panel-fab.com"
+  - name: "PGF Technology Group"
+    state: "MI"
+    domain: "pgftech.com"
+  - name: "Pittsburgh Wire and Cable"
+    state: "PA"
+    domain: "pittsburghwire.com"
+  - name: "Electri-Cord Manufacturing"
+    state: "PA"
+    domain: "ecmfg.com"
   - name: "Allied Wire & Cable"
     state: "PA"
     domain: "awcwire.com"
+  - name: "Meridian Cable Assemblies"
+    state: "CT"
+    domain: "meridiancable.com"
   - name: "Falconer Electronics"
     state: "NY"
     domain: "falconerelectronics.com"
+  # Acceptable geographies (lower geo score, still in thesis)
+  - name: "Service Wire Company"
+    state: "WV"
+    domain: "servicewire.com"
+  - name: "Distributor Wire & Cable"
+    state: "CO"
+    domain: "distributorwire.com"
