@@ -169,6 +169,13 @@ def _process_company(conn, name: str, state: str | None, domain_hint: str | None
 
     combined = " ".join(t for _, t in pages)
     info = _extract(combined)
+    # Drop "owners" that are really the company name caught by the name+title
+    # regex (e.g. "Meridian Cable ... President" -> person "Meridian Cable").
+    comp_tokens = set(normalize.normalize_name(name).split())
+    info["owners"] = [
+        (p, t) for p, t in info["owners"]
+        if not set(normalize.normalize_name(p).split()) <= comp_tokens
+    ]
     cite = pages[0][0]
     fetch_date = http.fetched_at(f"https://{domain}/")
 
