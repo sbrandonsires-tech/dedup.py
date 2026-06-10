@@ -1,0 +1,25 @@
+# Analyst-maintained seed list of candidate private targets to crawl.
+#
+# The website-crawl source reads this list, resolves/verifies each company's
+# domain, then crawls About/History/Team pages for founding year, family
+# ownership language, and owner names. State Secretary of State ingestion will
+# later auto-populate this role; until then an analyst curates it by hand.
+#
+# Fields: name (required), state (optional), domain (optional - guessed if blank).
+
+seeds:
+  - name: "Electri-Cord Manufacturing"
+    state: "PA"
+    domain: "ecmfg.com"
+  - name: "Meridian Cable Assemblies"
+    state: "CT"
+    domain: "meridiancable.com"
+  - name: "Cobra Wire & Cable"
+    state: "IN"
+    domain: "cobrawire.com"
+  - name: "Allied Wire & Cable"
+    state: "PA"
+    domain: "awcwire.com"
+  - name: "Falconer Electronics"
+    state: "NY"
+    domain: "falconerelectronics.com"

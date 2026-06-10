@@ -23,7 +23,7 @@ import sys
 import time
 
 from trs import db, excel, process, settings
-from trs.sources import census, edgar
+from trs.sources import census, edgar, website
 
 # Default test scope: NAICS 33592 (wire and cable) in Indiana and Illinois.
 DEFAULT_STATES = ["IL", "IN"]
@@ -44,6 +44,8 @@ def _run_source(conn, name, *, states, naics, queries, universe_box):
         info = census.run(conn, states=states, naics_codes=naics)
         info["scope"] = f"NAICS {', '.join(naics)} in {', '.join(states)}"
         universe_box["info"] = info
+    elif name == "website":
+        website.run(conn)
     else:
         print(f"[pipeline] unknown source: {name}")
         sys.exit(2)
@@ -58,7 +60,7 @@ def cmd_run(args):
     db.reset_new_flags(conn)
     universe_box: dict = {}
 
-    sources = [args.source] if args.source else ["census", "edgar"]
+    sources = [args.source] if args.source else ["census", "edgar", "website"]
     start = time.time()
     for name in sources:
         _run_source(conn, name, states=states, naics=naics,
@@ -96,7 +98,7 @@ def main():
     sub = p.add_subparsers(dest="command", required=True)
 
     pr = sub.add_parser("run", help="full pass or a single source")
-    pr.add_argument("--source", choices=["census", "edgar"], default=None)
+    pr.add_argument("--source", choices=["census", "edgar", "website"], default=None)
     pr.add_argument("--states", default=",".join(DEFAULT_STATES))
     pr.add_argument("--naics", default=",".join(DEFAULT_NAICS))
     pr.add_argument("--query", action="append", default=None)
