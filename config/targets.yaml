@@ -30,10 +30,26 @@ niches:
       - "electrical distribution"
       - "electrical equipment"
       - "value-add distribution"
+      - "value added distribution"
       - "industrial distribution"
+      - "industrial supply"
       - "fabricated metal"
       - "contract manufacturing"
       - "precision machining"
+      # Widened thesis: fasteners, injection molding / plastics, gaskets/seals
+      - "fastener"
+      - "fasteners"
+      - "threaded"
+      - "nuts and bolts"
+      - "injection molding"
+      - "injection molded"
+      - "plastic injection"
+      - "custom molding"
+      - "contract molding"
+      - "plastics manufacturing"
+      - "gasket"
+      - "seals"
+      - "vendor managed inventory"
   adjacent:        # acceptable industrial, lower conviction
     weight: 45
     keywords:
@@ -42,6 +58,10 @@ niches:
       - "machining"
       - "fabrication"
       - "components"
+      - "distribution"
+      - "molding"
+      - "tooling"
+      - "stamping"
 
 # NAICS codes that define the industrial universe (Census + EDGAR SIC mapping).
 # 3-digit families plus the high-priority 5-6 digit niches.
@@ -57,9 +77,16 @@ naics:
     - "3363"       # Motor vehicle parts mfg
     - "3353"       # Electrical equipment mfg
     - "332"        # Fabricated metal product mfg
+    - "332722"     # Bolt, nut, screw, rivet, washer (fasteners) mfg
     - "333"        # Machinery mfg
     - "334"        # Computer and electronic product mfg
     - "335"        # Electrical equipment, appliance, component mfg
+    - "3261"       # Plastics product mfg (incl. injection molding)
+    - "326199"     # All other plastics product mfg
+    - "3252"       # Resin / rubber (gaskets, seals adjacency)
+    - "423710"     # Hardware merchant wholesalers
+    - "423830"     # Industrial machinery / equipment wholesalers
+    - "423840"     # Industrial supplies merchant wholesalers
 
 # Geography tiers. Higher tier weight scores higher on the geography component.
 geography:
